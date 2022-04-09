@@ -250,8 +250,9 @@ void CBMap_Load_Exported(void){
                             starter+=11;
                             dir=dir_West;
                         }else break;
-                        for(int i=0;i<strlen(starter);i++){
-                            if(starter[0]=='}'||starter[0]==','){
+                        for(int i=0;i<=strlen(starter);i++){
+                            if(starter[0]=='}')break;
+                            if(starter[0]==','){
                                 starter++;
                                 break;
                             }
@@ -259,7 +260,9 @@ void CBMap_Load_Exported(void){
                             id+=starter[0]-'0';
                             starter++;
                         }
+                        if(id==0)break;
                         newroom.exits[dir]=id;
+                        if(starter[0]=='}')break;
                     }
                 }
                 if(strncmp(starter,".table=",6)==0){
@@ -275,9 +278,9 @@ void CBMap_Load_Exported(void){
                             id+=starter[0]-'0';
                         }
                         if(id==0)break;
-                        if(starter[0]=='}')break;
                         newroom.table[index]=id;
                         index++;
+                        if(starter[0]=='}')break;
                     }
                 }
             }
@@ -420,7 +423,12 @@ void CBMap_Update_Camera(void){
     cbmap.camera.recshown=0;
 }
 void CBMap_Update_Select(void){
-    int tile=100.0f*cbmap.camera.scale;
+    int tile=100;{
+        float tiled=100.0f*cbmap.camera.scale;
+        tile=tiled;
+        if(tiled-tile>0.5f)tile++;
+        if(tile-tiled>0.5f)tile--;
+    }
     { // grid init pos
         cbmap.camera.curx=0;
         cbmap.camera.cury=0;
@@ -526,7 +534,7 @@ void CBMap_Update_Select(void){
                             if(cbmap.room.rooms[i].exits[dir_South]==0)connectible=true;
                         }
                     }
-                    if(roomfromindex!=-1&&creatable==false)break;
+                    if(roomfromindex!=-1&&creatable==false&&connectible==true)break;
                 }
                 if(roomfromindex==-1)connectible=false;
                 if(creatable){
@@ -655,7 +663,12 @@ void CBMap_Update(void){
     cbmap.timer.calcend=Time_Get();
 }
 void CBMap_Draw_Room(int x,int y,int posx,int posy,int size){
-    int tile=100.0f*cbmap.camera.scale;
+    int tile=100;{
+        float tiled=100.0f*cbmap.camera.scale;
+        tile=tiled;
+        if(tiled-tile>0.5f)tile++;
+        if(tile-tiled>0.5f)tile--;
+    }
     Room *room=NULL;
     for(int i=0;i<cbmap.room.count;i++){
         if(cbmap.room.rooms[i].x==x&&cbmap.room.rooms[i].y==y){
@@ -699,7 +712,9 @@ void CBMap_Draw_Room(int x,int y,int posx,int posy,int size){
         case db_roomtype_gate:bg=DARKGRAY;fg=WHITE;break;
         case db_roomtype_store:bg=BLUE;fg=WHITE;break;
         case db_roomtype_train:bg=ORANGE;fg=WHITE;break;
-        default:bg=Region_GetPlainRoomColor(room->region);fg=WHITE;break;
+        default:bg=Region_GetPlainRoomColor(room->region);fg=WHITE;
+            if(room->table[0])bg=Color_AlphaBlend(bg,RED,Color_Fade(WHITE,0.15));
+            break;
         }
         Shape_DrawRec(posx,posy,size,size,bg);
         Text_Draw(Text_Format("%d",room->id),posx+1,posy+1,10,fg);
@@ -712,15 +727,49 @@ void CBMap_Draw_Room(int x,int y,int posx,int posy,int size){
         free(name);
 
         // draw exitss
+        Color bg2=Color_AlphaBlend((Color){100,100,100,255},bg,Color_Fade(WHITE,0.8));
         if(room->exits[dir_West]){
-            Shape_DrawRec(posx-tile*0.2f,posy,tile*0.2f,tile,Color_Fade(bg,0.5));
+            Shape_DrawRec(posx-tile*0.1f,posy,tile*0.1f,tile,bg2);
         }if(room->exits[dir_East]){
-            Shape_DrawRec(posx+tile,posy,tile*0.2f,tile,Color_Fade(bg,0.5));
+            Shape_DrawRec(posx+tile,posy,tile*0.1f,tile,bg2);
         }if(room->exits[dir_North]){
-            Shape_DrawRec(posx,posy-tile*0.2f,tile,tile*0.2f,Color_Fade(bg,0.5));
+            Shape_DrawRec(posx,posy-tile*0.1f,tile,tile*0.1f,bg2);
         }if(room->exits[dir_South]){
-            Shape_DrawRec(posx,posy+tile,tile,tile*0.2f,Color_Fade(bg,0.5));
+            Shape_DrawRec(posx,posy+tile,tile,tile*0.1f,bg2);
         }
+
+        // exits checker
+        if(room->exits[dir_West]){
+            Room *room2;
+            if(cbmap.room.rooms[room->exits[dir_West]-1].id==room->exits[dir_West]){
+                room2=&cbmap.room.rooms[room->exits[dir_West]-1];
+                if(room2->exits[dir_East]!=room->id)
+                    Shape_DrawRec(posx-tile*0.1f,posy,tile*0.1f,tile,RED);
+            }
+        }if(room->exits[dir_East]){
+            Room *room2;
+            if(cbmap.room.rooms[room->exits[dir_East]-1].id==room->exits[dir_East]){
+                room2=&cbmap.room.rooms[room->exits[dir_East]-1];
+                if(room2->exits[dir_West]!=room->id)
+                    Shape_DrawRec(posx+tile,posy,tile*0.1f,tile,RED);
+            }
+        }if(room->exits[dir_North]){
+            Room *room2;
+            if(cbmap.room.rooms[room->exits[dir_North]-1].id==room->exits[dir_North]){
+                room2=&cbmap.room.rooms[room->exits[dir_North]-1];
+                if(room2->exits[dir_South]!=room->id){
+                    Shape_DrawRec(posx,posy-tile*0.1f,tile,tile*0.1f,RED);
+                }
+            }
+        }if(room->exits[dir_South]){
+            Room *room2;
+            if(cbmap.room.rooms[room->exits[dir_South]-1].id==room->exits[dir_South]){
+                room2=&cbmap.room.rooms[room->exits[dir_South]-1];
+                if(room2->exits[dir_North]!=room->id)
+                    Shape_DrawRec(posx,posy+tile,tile,tile*0.1f,RED);
+            }
+        }
+
     }
     else{
         Shape_DrawRec(posx,posy,size,size,Color_Fade(DARKGRAY,0.4));
@@ -729,7 +778,12 @@ void CBMap_Draw_Room(int x,int y,int posx,int posy,int size){
     cbmap.camera.recshown++;
 }
 void CBMap_Draw_Grid(void){
-    int tile=100.0f*cbmap.camera.scale;
+    int tile=100;{
+        float tiled=100.0f*cbmap.camera.scale;
+        tile=tiled;
+        if(tiled-tile>0.5f)tile++;
+        if(tile-tiled>0.5f)tile--;
+    }
     int curx=cbmap.camera.curx,cury=cbmap.camera.cury;
     for(int tilex=cbmap.camera.initx;tilex<cbmap.width;tilex+=1.2*tile){
         for(int tiley=cbmap.camera.inity;tiley<cbmap.height;tiley+=1.2*tile){
@@ -896,7 +950,7 @@ void Room_Export(FILE *fp,Room *room){
         }
     }
     fprintf(fp,"},\n");
-    if(room->table[0]){
+    if(room->table[0]!=0){
         fprintf(fp,"        .table={");
         for(int i=0,prev=0;;i++){
             if(room->table[i]==0)break;

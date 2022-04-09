@@ -3,7 +3,7 @@
 int main(){
     TraceLog_SetLevel(LOG_NONE);
     Window_PresetFlags(FLAG_WINDOW_RESIZABLE);
-    Window_Init(600,400,"Corburt Map Editor");
+    Window_Init(600,400,"Corburt Map Editor v3");
     Window_SetMinSize(600,400);
     cbmap.load();
     cbmap.room.initid=0;
