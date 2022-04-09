@@ -5,10 +5,13 @@
 #include <string.h>
 #include <wchar.h>
 #define MALLOC_STEP 1024
+#define ROOMNAME_MAX 256
+#define ROOMDESC_MAX 4096
 
 struct cbmap;
 struct Room;
 
+void CBMap_Load_Exported(void);
 void CBMap_Load_Buttons(void);
 void CBMap_Load_New(void);
 void CBMap_Load(void);
@@ -115,6 +118,8 @@ struct cbmap {
     {0,0,0,0,0,0,false},{0,false,false,NULL}
 };
 
+Color Region_GetPlainRoomColor(int region);
+
 void Room_Create(Room room);
 void Room_Export(FILE *fp,Room *room);
 void Room_Delete(int roomindex);
@@ -130,8 +135,160 @@ void Room_EditType_Current(void);
 void Room_EditTabl(int roomindex);
 void Room_EditTabl_Current(void);
 
+void CBMap_Load_Exported(void){
+    cbmap.room.space=MALLOC_STEP;
+    cbmap.room.rooms=malloc(MALLOC_STEP*sizeof(Room));
+    if(!cbmap.room.rooms)cbmap.exit();
+
+    FILE *fp=fopen("export.txt","r");
+    if(fp==NULL){
+        CBMap_Load_New();
+    }else{ // load
+        int curid=1;
+        Room newroom={0},emptyroom={0};
+        char *line=malloc((ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(wchar_t));
+        memset(line,0,(ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(wchar_t));
+        fgets(line,(ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(wchar_t),fp); //roomdb roomdbs[]={
+        while(strlen(line)){
+            memset(line,0,(ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(wchar_t));
+            fgets(line,(ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(wchar_t),fp);
+            while(line[strlen(line)-1]=='\r'||line[strlen(line)-1]=='\n'||line[strlen(line)-1]==',')line[strlen(line)-1]=0;
+            char* starter=strchr(line,'.');
+            if(starter==NULL){
+                if(strcmp(line,"    }")==0){
+                    if(newroom.id!=0){
+                        Room_Create(newroom);
+                    }
+                    newroom=emptyroom;
+                }
+            }
+            else{
+                if(strncmp(starter,".id=",4)==0){
+                    curid=0;
+                    for(int i=4;i<strlen(starter);i++){
+                        if(starter[i]==',')break;
+                        curid*=10;
+                        curid+=starter[i]-'0';
+                    }
+                    newroom.id=curid;
+                }
+                if(strncmp(starter,".x=",3)==0){
+                    int curpos=0;
+                    int neg=1;
+                    for(int i=3;i<strlen(starter);i++){
+                        if(starter[i]=='-'){
+                            neg=-1;continue;
+                        }
+                        curpos*=10;
+                        curpos+=starter[i]-'0';
+                    }
+                    curpos*=neg;
+                    newroom.x=curpos;
+                }
+                if(strncmp(starter,".y=",3)==0){
+                    int curpos=0;
+                    int neg=1;
+                    for(int i=3;i<strlen(starter);i++){
+                        if(starter[i]=='-'){
+                            neg=-1;continue;
+                        }
+                        curpos*=10;
+                        curpos+=starter[i]-'0';
+                    }
+                    curpos*=neg;
+                    newroom.y=curpos;
+                }
+                if(strncmp(starter,".region=",8)==0){ //
+                    if(strcmp(starter+8,"db_roomregion_nlcity")==0){
+                        newroom.region=0;
+                    }else if(strcmp(starter+8,"db_roomregion_forest")==0){
+                        newroom.region=1;
+                    }
+                }
+                if(strncmp(starter,".type=",6)==0){
+                    if(strcmp(starter+6,"db_roomtype_plain")==0){
+                        newroom.type=db_roomtype_plain;
+                    }else if(strcmp(starter+6,"db_roomtype_birth")==0){
+                        newroom.type=db_roomtype_birth;
+                    }else if(strcmp(starter+6,"db_roomtype_store")==0){
+                        newroom.type=db_roomtype_store;
+                    }else if(strcmp(starter+6,"db_roomtype_shop")==0){
+                        newroom.type=db_roomtype_shop;
+                    }else if(strcmp(starter+6,"db_roomtype_train")==0){
+                        newroom.type=db_roomtype_train;
+                    }else if(strcmp(starter+6,"db_roomtype_gate")==0){
+                        newroom.type=db_roomtype_gate;
+                    }
+                }
+                if(strncmp(starter,".name=L\"",8)==0){
+                    line[strlen(line)-1]=0;
+                    newroom.name=malloc(ROOMNAME_MAX*sizeof(wchar_t));
+                    wmemset(newroom.name,0,ROOMNAME_MAX);
+                    mbstowcs(newroom.name,starter+8,ROOMNAME_MAX*sizeof(wchar_t));
+                }
+                if(strncmp(starter,".desc=L\"",8)==0){
+                    line[strlen(line)-1]=0;
+                    newroom.desc=malloc(ROOMDESC_MAX*sizeof(wchar_t));
+                    wmemset(newroom.desc,0,ROOMDESC_MAX);
+                    mbstowcs(newroom.desc,starter+8,ROOMDESC_MAX*sizeof(wchar_t));
+                }
+                if(strncmp(starter,".exits=",6)==0){ //
+                    starter+=8;
+                    while(true){
+                        int dir;
+                        int id=0;
+                        if(strncmp(starter,"[dir_South]=",12)==0){
+                            starter+=12;
+                            dir=dir_South;
+                        }else if(strncmp(starter,"[dir_North]=",12)==0){
+                            starter+=12;
+                            dir=dir_North;
+                        }else if(strncmp(starter,"[dir_East]=",11)==0){
+                            starter+=11;
+                            dir=dir_East;
+                        }else if(strncmp(starter,"[dir_West]=",11)==0){
+                            starter+=11;
+                            dir=dir_West;
+                        }else break;
+                        for(int i=0;i<strlen(starter);i++){
+                            if(starter[0]=='}'||starter[0]==','){
+                                starter++;
+                                break;
+                            }
+                            id*=10;
+                            id+=starter[0]-'0';
+                            starter++;
+                        }
+                        newroom.exits[dir]=id;
+                    }
+                }
+                if(strncmp(starter,".table=",6)==0){
+                    starter+=7;
+                    int index=0;
+                    while(true){
+                        int id=0;
+                        for(int i=0;i<strlen(starter);i++){
+                            starter++;
+                            if(starter[0]==' ')continue;
+                            if(starter[0]==','||starter[0]=='}')break;
+                            id*=10;
+                            id+=starter[0]-'0';
+                        }
+                        if(id==0)break;
+                        if(starter[0]=='}')break;
+                        newroom.table[index]=id;
+                        index++;
+                    }
+                }
+            }
+        }
+        free(line);
+        fclose(fp);
+        if(cbmap.room.count==0)CBMap_Load_New();
+    }
+}
 void CBMap_Load_Buttons(void){
-    const int bwidth=170;
+#define bwidth 170
     static Button buttons[]={
         {.id=1,.label="Delete room",
             .x=205,
@@ -186,25 +343,22 @@ void CBMap_Load_Buttons(void){
     cbmap.button.count=6;
 }
 void CBMap_Load_New(void){
-    cbmap.room.space=MALLOC_STEP;
-    cbmap.room.rooms=malloc(MALLOC_STEP*sizeof(Room));
-    if(!cbmap.room.rooms)cbmap.exit();
     Room tmproom={0};
     for(int i=0;i<MALLOC_STEP;i++)cbmap.room.rooms[i]=tmproom;
     Room *room=&cbmap.room.rooms[0];
     room->id=1;
     room->type=db_roomtype_birth;
-    room->name=malloc(256*sizeof(wchar_t));
-    wmemset(room->name,0,256);
+    room->name=malloc(ROOMNAME_MAX*sizeof(wchar_t));
+    wmemset(room->name,0,ROOMNAME_MAX);
     wcscpy(room->name,L"Untitled room");
-    room->desc=malloc(4096*sizeof(wchar_t));
-    wmemset(room->desc,0,4096);
+    room->desc=malloc(ROOMDESC_MAX*sizeof(wchar_t));
+    wmemset(room->desc,0,ROOMDESC_MAX);
     wcscpy(room->desc,L"No description");
     cbmap.room.count=1;
 }
 void CBMap_Load(void){
     CBMap_Load_Buttons();
-    CBMap_Load_New();
+    CBMap_Load_Exported();
 }
 void CBMap_Save(void){
     FILE *fp=fopen("export.txt","w");
@@ -212,8 +366,7 @@ void CBMap_Save(void){
     for(int i=0;i<cbmap.room.count;i++){
         Room_Export(fp,&cbmap.room.rooms[i]);
     }
-    fprintf(fp,"    {\n"
-        "        .id=0\n"
+    fprintf(fp,"    {.id=0\n"
         "//              -------------------------------------------------------------------\n"
         "    }\n"
         "};\n");
@@ -395,6 +548,12 @@ void CBMap_Update_Select(void){
                         room.exits[dir_South]=cbmap.room.rooms[roomfromindex].id;
                         cbmap.room.rooms[roomfromindex].exits[dir_North]=room.id;
                     }
+                        room.name=malloc(ROOMNAME_MAX*sizeof(wchar_t));
+                        wmemset(room.name,0,ROOMNAME_MAX);
+                        wcscpy(room.name,L"Untitled room");
+                        room.desc=malloc(ROOMDESC_MAX*sizeof(wchar_t));
+                        wmemset(room.desc,0,ROOMDESC_MAX);
+                        wcscpy(room.desc,L"No description");
                     Room_Create(room);
                 }
                 else if(connectible){
@@ -540,21 +699,17 @@ void CBMap_Draw_Room(int x,int y,int posx,int posy,int size){
         case db_roomtype_gate:bg=DARKGRAY;fg=WHITE;break;
         case db_roomtype_store:bg=BLUE;fg=WHITE;break;
         case db_roomtype_train:bg=ORANGE;fg=WHITE;break;
-        default:bg=GRAY;fg=WHITE;break;
+        default:bg=Region_GetPlainRoomColor(room->region);fg=WHITE;break;
         }
         Shape_DrawRec(posx,posy,size,size,bg);
         Text_Draw(Text_Format("%d",room->id),posx+1,posy+1,10,fg);
 
         char *name=malloc(256*sizeof(wchar_t));
-        char *desc=malloc(4096*sizeof(wchar_t));
         memset(name,0,256*sizeof(wchar_t));
-        memset(desc,0,4096*sizeof(wchar_t));
         wcstombs(name,room->name,256*sizeof(wchar_t));
-        wcstombs(desc,room->desc,4096*sizeof(wchar_t));
-        Text_DrawRec(Font_GetDefault(),Text_Format("%s\n\n%s",name,desc),
+        Text_DrawRec(Font_GetDefault(),Text_Format("%s\n",name),
             (Rectangle){posx+1,posy+16,tile-2,tile-17},10,2,true,fg);
         free(name);
-        free(desc);
 
         // draw exitss
         if(room->exits[dir_West]){
@@ -603,7 +758,7 @@ void CBMap_Draw_Text(void){
     float fps=1.0f/(Time_Get()-cbmap.timer.framestart);
     Text_DrawRec(Font_GetDefault(), // draw time
         Text_Format(
-            "%s\ns"
+            "%s\n"
             "Calculation time: %.1f us\n"
             "Draw time: %.4f ms\n"
             "Tiles drawn: %d\n"
@@ -630,12 +785,12 @@ void CBMap_Draw_Text(void){
             (Rectangle){5,195,190,200},10,2,true,WHITE);
         if(ind>=0){
             Room *rm=&cbmap.room.rooms[ind];
-            char *name=malloc(256*sizeof(wchar_t));
-            char *desc=malloc(4096*sizeof(wchar_t));
-            memset(name,0,256*sizeof(wchar_t));
-            memset(desc,0,4096*sizeof(wchar_t));
-            wcstombs(name,rm->name,256*sizeof(wchar_t));
-            wcstombs(desc,rm->desc,4096*sizeof(wchar_t));
+            char *name=malloc(ROOMNAME_MAX*sizeof(wchar_t));
+            char *desc=malloc(ROOMDESC_MAX*sizeof(wchar_t));
+            memset(name,0,ROOMNAME_MAX*sizeof(wchar_t));
+            memset(desc,0,ROOMDESC_MAX*sizeof(wchar_t));
+            wcstombs(name,rm->name,ROOMNAME_MAX*sizeof(wchar_t));
+            wcstombs(desc,rm->desc,ROOMDESC_MAX*sizeof(wchar_t));
             Text_DrawRec(Font_GetDefault(),
                 Text_Format(
                     "%s\n"
@@ -699,29 +854,25 @@ void Room_Create(Room room){
         free(cbmap.room.rooms);
         cbmap.room.rooms=rooms;
     }
-    room.name=malloc(256*sizeof(wchar_t));
-    wmemset(room.name,0,256);
-    wcscpy(room.name,L"Untitled room");
-    room.desc=malloc(4096*sizeof(wchar_t));
-    wmemset(room.desc,0,4096);
-    wcscpy(room.desc,L"No description");
     cbmap.room.rooms[cbmap.room.count]=room;
     cbmap.room.count++;
 }
 void Room_Export(FILE *fp,Room *room){
     fprintf(fp,"    {.id=%d,\n",room->id+cbmap.room.initid);
+    fprintf(fp,"        .x=%d,\n",room->x);
+    fprintf(fp,"        .y=%d,\n",room->y);
     fprintf(fp,"        .region=db_roomregion_%s,\n",
         room->region==0?"nlcity":"forest"
     );
     fwprintf(fp,L"        .name=L\"%ls\",\n",room->name);
     fwprintf(fp,L"        .desc=L\"%ls\",\n",room->desc);
-    fprintf(fp,L"        .type=db_roomtype_%s,\n",
+    fprintf(fp,"        .type=db_roomtype_%s,\n",
         room->type==db_roomtype_birth?"birth":
         room->type==db_roomtype_gate?"gate":
         room->type==db_roomtype_store?"store":
         room->type==db_roomtype_plain?"plain":"train"
     );
-    fprintf(fp,"       .exits={");
+    fprintf(fp,"        .exits={");
     {
         bool exited=false;
         if(room->exits[dir_East]){
@@ -744,7 +895,18 @@ void Room_Export(FILE *fp,Room *room){
             exited=true;
         }
     }
-    fprintf(fp,"}\n    },\n");
+    fprintf(fp,"},\n");
+    if(room->table[0]){
+        fprintf(fp,"        .table={");
+        for(int i=0,prev=0;;i++){
+            if(room->table[i]==0)break;
+            if(prev)fputc(',',fp);
+            fprintf(fp,"%d",room->table[i]);
+            prev=1;
+        }
+        fprintf(fp,"},\n");
+    }
+    fprintf(fp,"    },\n");
 }
 void Room_Delete(int roomindex){
     Room *room=&cbmap.room.rooms[roomindex];
@@ -803,5 +965,16 @@ void Room_EditType_Current(void){
 }
 void Room_EditTabl_Current(void){
     Room_EditTabl(cbmap.select.index);
+}
+
+Color Region_GetPlainRoomColor(int region){
+    switch(region){
+    case 0:
+        return GRAY;
+    case 1:
+        return Color_AlphaBlend(GRAY,GRAY,Color_Fade(GREEN,0.5f));
+    default:
+        return GRAY;
+    }
 }
 #endif // CBMAP_H
