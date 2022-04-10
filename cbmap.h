@@ -676,46 +676,125 @@ void CBMap_Draw_Room(int x,int y,int posx,int posy,int size){
             break;
         }
     }
-    { // draw selection
-        if(x==cbmap.select.x&&y==cbmap.select.y&&(cbmap.select.target==1||cbmap.select.target==2||cbmap.select.target==3)){
-            if(cbmap.select.target==1){
-                Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,SKYBLUE);
-            }else if(cbmap.select.target==2){
-                Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,DARKBLUE);
-            }else if(cbmap.select.target==3){
-                Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,RED);
-            }
-        }else{
-            if(x==cbmap.select.downx&&y==cbmap.select.downy){
-                if(cbmap.select.target!=4&&cbmap.select.index>=0)Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,DARKBLUE);
-                else if(cbmap.select.target==4){
-                    Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,RED);
-                    if(x==cbmap.select.x+1&&y==cbmap.select.y){
-                        Shape_DrawRec(posx-tile*0.2f,posy,tile*0.2f,tile,RED);
-                    }else if(x==cbmap.select.x-1&&y==cbmap.select.y){
-                        Shape_DrawRec(posx+tile,posy,tile*0.2f,tile,RED);
-                    }else if(x==cbmap.select.x&&y==cbmap.select.y+1){
-                        Shape_DrawRec(posx,posy-tile*0.2f,tile,tile*0.2f,RED);
-                    }else if(x==cbmap.select.x&&y==cbmap.select.y-1){
-                        Shape_DrawRec(posx,posy+tile,tile,tile*0.2f,RED);
-                    }
-                }
-            }else if(x==cbmap.select.x&&y==cbmap.select.y&&cbmap.select.target==4){
-                Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,RED);
-            }
-        }
-    }
     if(room){
         Color bg,fg;
         switch(room->type){
         case db_roomtype_birth:bg=GOLD;fg=BLACK;break;
-        case db_roomtype_gate:bg=DARKGRAY;fg=WHITE;break;
+        case db_roomtype_gate:bg=GRAY;fg=WHITE;break;
         case db_roomtype_store:bg=BLUE;fg=WHITE;break;
         case db_roomtype_train:bg=ORANGE;fg=WHITE;break;
         default:bg=Region_GetPlainRoomColor(room->region);fg=WHITE;
             if(room->table[0])bg=Color_AlphaBlend(bg,RED,Color_Fade(WHITE,0.15));
             break;
         }
+
+        {// draw exitss
+            Color bg2=Color_AlphaBlend((Color){100,100,100,255},bg,Color_Fade(WHITE,0.8));
+//            if(room->exits[dir_West]){
+//                Shape_DrawRec(posx-tile*0.1f,posy,tile*0.1f,tile,bg2);
+//            }if(room->exits[dir_East]){
+//                Shape_DrawRec(posx+tile,posy,tile*0.1f,tile,bg2);
+//            }if(room->exits[dir_North]){
+//                Shape_DrawRec(posx,posy-tile*0.1f,tile,tile*0.1f,bg2);
+//            }if(room->exits[dir_South]){
+//                Shape_DrawRec(posx,posy+tile,tile,tile*0.1f,bg2);
+//            }
+            if(room->exits[dir_West]){
+                if(room->exits[dir_North]&&
+                    cbmap.room.rooms[room->exits[dir_North]-1].exits[dir_West]&&
+                    cbmap.room.rooms[cbmap.room.rooms[room->exits[dir_North]-1].exits[dir_West]-1].exits[dir_South]){
+                    Shape_DrawRec(posx-tile*0.1f,posy-tile*0.1f,tile*0.1f,tile*1.1f,bg2);
+                }else{
+                    Shape_DrawRec(posx-tile*0.1f,posy,tile*0.1f,tile,bg2);
+                }
+            }if(room->exits[dir_East]){
+                if(room->exits[dir_South]&&
+                    cbmap.room.rooms[room->exits[dir_South]-1].exits[dir_East]&&
+                    cbmap.room.rooms[cbmap.room.rooms[room->exits[dir_South]-1].exits[dir_East]-1].exits[dir_North]){
+                    Shape_DrawRec(posx+tile,posy,tile*0.1f,tile*1.1f,bg2);
+                }else{
+                    Shape_DrawRec(posx+tile,posy,tile*0.1f,tile,bg2);
+                }
+            }if(room->exits[dir_North]){
+                if(room->exits[dir_East]&&
+                    cbmap.room.rooms[room->exits[dir_East]-1].exits[dir_North]&&
+                    cbmap.room.rooms[cbmap.room.rooms[room->exits[dir_East]-1].exits[dir_North]-1].exits[dir_West]){
+                    Shape_DrawRec(posx,posy-tile*0.1f,tile*1.1f,tile*0.1f,bg2);
+                }else{
+                    Shape_DrawRec(posx,posy-tile*0.1f,tile,tile*0.1f,bg2);
+                }
+            }if(room->exits[dir_South]){
+                if(room->exits[dir_West]&&
+                    cbmap.room.rooms[room->exits[dir_West]-1].exits[dir_South]&&
+                    cbmap.room.rooms[cbmap.room.rooms[room->exits[dir_West]-1].exits[dir_South]-1].exits[dir_East]){
+                    Shape_DrawRec(posx-tile*0.1f,posy+tile,tile*1.1f,tile*0.1f,bg2);
+                }else{
+                    Shape_DrawRec(posx,posy+tile,tile,tile*0.1f,bg2);
+                }
+            }
+            // exits checker
+            if(room->exits[dir_West]){
+                Room *room2;
+                if(cbmap.room.rooms[room->exits[dir_West]-1].id==room->exits[dir_West]){
+                    room2=&cbmap.room.rooms[room->exits[dir_West]-1];
+                    if(room2->exits[dir_East]!=room->id)
+                        Shape_DrawRec(posx-tile*0.1f,posy,tile*0.1f,tile,RED);
+                }
+            }if(room->exits[dir_East]){
+                Room *room2;
+                if(cbmap.room.rooms[room->exits[dir_East]-1].id==room->exits[dir_East]){
+                    room2=&cbmap.room.rooms[room->exits[dir_East]-1];
+                    if(room2->exits[dir_West]!=room->id)
+                        Shape_DrawRec(posx+tile,posy,tile*0.1f,tile,RED);
+                }
+            }if(room->exits[dir_North]){
+                Room *room2;
+                if(cbmap.room.rooms[room->exits[dir_North]-1].id==room->exits[dir_North]){
+                    room2=&cbmap.room.rooms[room->exits[dir_North]-1];
+                    if(room2->exits[dir_South]!=room->id){
+                        Shape_DrawRec(posx,posy-tile*0.1f,tile,tile*0.1f,RED);
+                    }
+                }
+            }if(room->exits[dir_South]){
+                Room *room2;
+                if(cbmap.room.rooms[room->exits[dir_South]-1].id==room->exits[dir_South]){
+                    room2=&cbmap.room.rooms[room->exits[dir_South]-1];
+                    if(room2->exits[dir_North]!=room->id)
+                        Shape_DrawRec(posx,posy+tile,tile,tile*0.1f,RED);
+                }
+            }
+        }
+
+        { // draw selection
+            if(x==cbmap.select.x&&y==cbmap.select.y&&(cbmap.select.target==1||cbmap.select.target==2||cbmap.select.target==3)){
+                if(cbmap.select.target==1){
+                    Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,SKYBLUE);
+                }else if(cbmap.select.target==2){
+                    Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,DARKBLUE);
+                }else if(cbmap.select.target==3){
+                    Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,RED);
+                }
+            }else{
+                if(x==cbmap.select.downx&&y==cbmap.select.downy){
+                    if(cbmap.select.target!=4&&cbmap.select.index>=0)Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,DARKBLUE);
+                    else if(cbmap.select.target==4){
+                        Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,RED);
+                        if(x==cbmap.select.x+1&&y==cbmap.select.y){
+                            Shape_DrawRec(posx-tile*0.2f,posy,tile*0.2f,tile,RED);
+                        }else if(x==cbmap.select.x-1&&y==cbmap.select.y){
+                            Shape_DrawRec(posx+tile,posy,tile*0.2f,tile,RED);
+                        }else if(x==cbmap.select.x&&y==cbmap.select.y+1){
+                            Shape_DrawRec(posx,posy-tile*0.2f,tile,tile*0.2f,RED);
+                        }else if(x==cbmap.select.x&&y==cbmap.select.y-1){
+                            Shape_DrawRec(posx,posy+tile,tile,tile*0.2f,RED);
+                        }
+                    }
+                }else if(x==cbmap.select.x&&y==cbmap.select.y&&cbmap.select.target==4){
+                    Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,RED);
+                }
+            }
+        }
+
         Shape_DrawRec(posx,posy,size,size,bg);
         Text_Draw(Text_Format("%d",room->id),posx+1,posy+1,10,fg);
 
@@ -726,55 +805,44 @@ void CBMap_Draw_Room(int x,int y,int posx,int posy,int size){
             (Rectangle){posx+1,posy+16,tile-2,tile-17},10,2,true,fg);
         free(name);
 
-        // draw exitss
-        Color bg2=Color_AlphaBlend((Color){100,100,100,255},bg,Color_Fade(WHITE,0.8));
-        if(room->exits[dir_West]){
-            Shape_DrawRec(posx-tile*0.1f,posy,tile*0.1f,tile,bg2);
-        }if(room->exits[dir_East]){
-            Shape_DrawRec(posx+tile,posy,tile*0.1f,tile,bg2);
-        }if(room->exits[dir_North]){
-            Shape_DrawRec(posx,posy-tile*0.1f,tile,tile*0.1f,bg2);
-        }if(room->exits[dir_South]){
-            Shape_DrawRec(posx,posy+tile,tile,tile*0.1f,bg2);
-        }
-
-        // exits checker
-        if(room->exits[dir_West]){
-            Room *room2;
-            if(cbmap.room.rooms[room->exits[dir_West]-1].id==room->exits[dir_West]){
-                room2=&cbmap.room.rooms[room->exits[dir_West]-1];
-                if(room2->exits[dir_East]!=room->id)
-                    Shape_DrawRec(posx-tile*0.1f,posy,tile*0.1f,tile,RED);
-            }
-        }if(room->exits[dir_East]){
-            Room *room2;
-            if(cbmap.room.rooms[room->exits[dir_East]-1].id==room->exits[dir_East]){
-                room2=&cbmap.room.rooms[room->exits[dir_East]-1];
-                if(room2->exits[dir_West]!=room->id)
-                    Shape_DrawRec(posx+tile,posy,tile*0.1f,tile,RED);
-            }
-        }if(room->exits[dir_North]){
-            Room *room2;
-            if(cbmap.room.rooms[room->exits[dir_North]-1].id==room->exits[dir_North]){
-                room2=&cbmap.room.rooms[room->exits[dir_North]-1];
-                if(room2->exits[dir_South]!=room->id){
-                    Shape_DrawRec(posx,posy-tile*0.1f,tile,tile*0.1f,RED);
-                }
-            }
-        }if(room->exits[dir_South]){
-            Room *room2;
-            if(cbmap.room.rooms[room->exits[dir_South]-1].id==room->exits[dir_South]){
-                room2=&cbmap.room.rooms[room->exits[dir_South]-1];
-                if(room2->exits[dir_North]!=room->id)
-                    Shape_DrawRec(posx,posy+tile,tile,tile*0.1f,RED);
-            }
-        }
-
     }
     else{
+
+        { // draw selection
+            if(x==cbmap.select.x&&y==cbmap.select.y&&(cbmap.select.target==1||cbmap.select.target==2||cbmap.select.target==3)){
+                if(cbmap.select.target==1){
+                    Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,SKYBLUE);
+                }else if(cbmap.select.target==2){
+                    Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,DARKBLUE);
+                }else if(cbmap.select.target==3){
+                    Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,RED);
+                }
+            }else{
+                if(x==cbmap.select.downx&&y==cbmap.select.downy){
+                    if(cbmap.select.target!=4&&cbmap.select.index>=0)Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,DARKBLUE);
+                    else if(cbmap.select.target==4){
+                        Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,RED);
+                        if(x==cbmap.select.x+1&&y==cbmap.select.y){
+                            Shape_DrawRec(posx-tile*0.2f,posy,tile*0.2f,tile,RED);
+                        }else if(x==cbmap.select.x-1&&y==cbmap.select.y){
+                            Shape_DrawRec(posx+tile,posy,tile*0.2f,tile,RED);
+                        }else if(x==cbmap.select.x&&y==cbmap.select.y+1){
+                            Shape_DrawRec(posx,posy-tile*0.2f,tile,tile*0.2f,RED);
+                        }else if(x==cbmap.select.x&&y==cbmap.select.y-1){
+                            Shape_DrawRec(posx,posy+tile,tile,tile*0.2f,RED);
+                        }
+                    }
+                }else if(x==cbmap.select.x&&y==cbmap.select.y&&cbmap.select.target==4){
+                    Shape_DrawRec(posx-tile*0.05f,posy-tile*0.05f,tile*1.1f,tile*1.1f,RED);
+                }
+            }
+        }
+
+
         Shape_DrawRec(posx,posy,size,size,Color_Fade(DARKGRAY,0.4));
         Text_Draw(Text_Format("(%d,%d)",x,y),posx+1,posy+1,10,WHITE);
     }
+
     cbmap.camera.recshown++;
 }
 void CBMap_Draw_Grid(void){
@@ -1022,13 +1090,16 @@ void Room_EditTabl_Current(void){
 }
 
 Color Region_GetPlainRoomColor(int region){
+    Color base=(Color){100,100,100,255};
     switch(region){
     case 0:
-        return GRAY;
+        return Color_AlphaBlend(base,WHITE,Color_Fade(WHITE,0.2f));
     case 1:
-        return Color_AlphaBlend(GRAY,GRAY,Color_Fade(GREEN,0.5f));
+        return Color_AlphaBlend(base,GREEN,Color_Fade(WHITE,0.2f));
+    case 2:
+        return Color_AlphaBlend(base,BLUE,Color_Fade(WHITE,0.2f));
     default:
-        return GRAY;
+        return base;
     }
 }
 #endif // CBMAP_H

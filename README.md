@@ -22,7 +22,11 @@ This is a tiny tool made with [Ascede](https://github.com/EinNeuerBenutzername/A
 ##### v3
 
 - Camera module revised.
-- Map data reading revised and stablized.
+- Map data reading revised and stabilized.
 - New mapping functions:
   - Highlight abnormal room exits data.
   - Tint rooms with enemies red.
+
+##### v3+
+
+- Made visual improvements and improved data stability.
