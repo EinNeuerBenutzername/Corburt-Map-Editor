@@ -26,6 +26,7 @@ void CBMap_Update_Select(void);
 void CBMap_Update_Button(void);
 void CBMap_Update(void);
 void CBMap_Exit(void);
+void CBMap_FreeAll(void);
 
 typedef struct Button {
     int id;
@@ -136,14 +137,15 @@ void Room_EditTabl(int roomindex);
 void Room_EditTabl_Current(void);
 
 void CBMap_Load_Exported(void){
-    cbmap.room.space=MALLOC_STEP;
-    cbmap.room.rooms=malloc(MALLOC_STEP*sizeof(Room));
+    cbmap.room.space=cbmap.room.space>MALLOC_STEP?cbmap.room.space:MALLOC_STEP;
+    cbmap.room.rooms=malloc(cbmap.room.space*sizeof(Room));
     if(!cbmap.room.rooms)cbmap.exit();
 
     FILE *fp=fopen("export.txt","r");
     if(fp==NULL){
         CBMap_Load_New();
-    }else{ // load
+    }
+    else{ // load
         int curid=1;
         Room newroom={0},emptyroom={0};
         char *line=malloc((ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(wchar_t));
@@ -353,10 +355,10 @@ void CBMap_Load_New(void){
     room->type=db_roomtype_birth;
     room->name=malloc(ROOMNAME_MAX*sizeof(wchar_t));
     wmemset(room->name,0,ROOMNAME_MAX);
-    wcscpy(room->name,L"Untitled room");
+//    wcscpy(room->name,L"");
     room->desc=malloc(ROOMDESC_MAX*sizeof(wchar_t));
     wmemset(room->desc,0,ROOMDESC_MAX);
-    wcscpy(room->desc,L"No description");
+//    wcscpy(room->desc,L"No description");
     cbmap.room.count=1;
 }
 void CBMap_Load(void){
@@ -369,10 +371,7 @@ void CBMap_Save(void){
     for(int i=0;i<cbmap.room.count;i++){
         Room_Export(fp,&cbmap.room.rooms[i]);
     }
-    fprintf(fp,"    {.id=0\n"
-        "//              -------------------------------------------------------------------\n"
-        "    }\n"
-        "};\n");
+    fprintf(fp,"};\n");
     fclose(fp);
 }
 void CBMap_Update_Camera(void){
@@ -412,9 +411,9 @@ void CBMap_Update_Camera(void){
     }
     if(Mouse_GetWheelDelta()<-0.00001||Mouse_GetWheelDelta()>0.00001){
         float oldscale=cbmap.camera.scale;
-        cbmap.camera.scale+=Mouse_GetWheelDelta()*0.1f;
+        cbmap.camera.scale+=Mouse_GetWheelDelta()*0.05f;
         if(cbmap.camera.scale>2)cbmap.camera.scale=2;
-        if(cbmap.camera.scale<0.4)cbmap.camera.scale=0.4;
+        if(cbmap.camera.scale<0.1f)cbmap.camera.scale=0.1f;
         if(cbmap.camera.scale-oldscale>0.00001f||oldscale-cbmap.camera.scale>0.00001f){
             cbmap.updatebuffer=true;
             cbmap.updatepoll=true;
@@ -558,10 +557,10 @@ void CBMap_Update_Select(void){
                     }
                         room.name=malloc(ROOMNAME_MAX*sizeof(wchar_t));
                         wmemset(room.name,0,ROOMNAME_MAX);
-                        wcscpy(room.name,L"Untitled room");
+//                        wcscpy(room.name,L"Untitled room");
                         room.desc=malloc(ROOMDESC_MAX*sizeof(wchar_t));
                         wmemset(room.desc,0,ROOMDESC_MAX);
-                        wcscpy(room.desc,L"No description");
+//                        wcscpy(room.desc,L"No description");
                     Room_Create(room);
                 }
                 else if(connectible){
@@ -660,6 +659,15 @@ void CBMap_Update(void){
     CBMap_Update_Camera();
     CBMap_Update_Button();
     CBMap_Update_Select();
+    if(Key_IsPressed(KEY_S)&&Key_IsDown(KEY_LEFT_CONTROL)){
+        cbmap.save();
+        cbmap.updatebuffer=true;
+    }
+    if(Key_IsPressed(KEY_L)&&Key_IsDown(KEY_LEFT_CONTROL)){
+        CBMap_FreeAll();
+        CBMap_Load_Exported();
+        cbmap.updatebuffer=true;
+    }
     cbmap.timer.calcend=Time_Get();
 }
 void CBMap_Draw_Room(int x,int y,int posx,int posy,int size){
@@ -680,12 +688,17 @@ void CBMap_Draw_Room(int x,int y,int posx,int posy,int size){
         Color bg,fg;
         switch(room->type){
         case db_roomtype_birth:bg=GOLD;fg=BLACK;break;
-        case db_roomtype_gate:bg=GRAY;fg=WHITE;break;
-        case db_roomtype_store:bg=BLUE;fg=WHITE;break;
+        case db_roomtype_gate:bg=DARKBROWN;fg=WHITE;break;
+        case db_roomtype_store:bg=BEIGE;fg=BLACK;break;
         case db_roomtype_train:bg=ORANGE;fg=WHITE;break;
         default:bg=Region_GetPlainRoomColor(room->region);fg=WHITE;
             if(room->table[0])bg=Color_AlphaBlend(bg,RED,Color_Fade(WHITE,0.15));
             break;
+        }
+        { // unfinished rooms
+            if(wcslen(room->desc)==0){
+                bg=Color_AlphaBlend(bg,BLACK,Color_Fade(WHITE,0.2));
+            }
         }
 
         {// draw exitss
@@ -796,7 +809,10 @@ void CBMap_Draw_Room(int x,int y,int posx,int posy,int size){
         }
 
         Shape_DrawRec(posx,posy,size,size,bg);
+        if(cbmap.camera.scale<0.3f)return;
         Text_Draw(Text_Format("%d",room->id),posx+1,posy+1,10,fg);
+
+        if(cbmap.camera.scale<0.4f)return;
 
         char *name=malloc(256*sizeof(wchar_t));
         memset(name,0,256*sizeof(wchar_t));
@@ -840,6 +856,7 @@ void CBMap_Draw_Room(int x,int y,int posx,int posy,int size){
 
 
         Shape_DrawRec(posx,posy,size,size,Color_Fade(DARKGRAY,0.4));
+        if(cbmap.camera.scale<0.4f)return;
         Text_Draw(Text_Format("(%d,%d)",x,y),posx+1,posy+1,10,WHITE);
     }
 
@@ -896,13 +913,20 @@ void CBMap_Draw_Text(void){
         int ind=cbmap.select.index;
         Text_DrawRec(Font_GetDefault(),
             Text_Format("%s\n"
-                "Room id: %d\n",
+                "Room ID %d \n"
+                "Region %d / %s\n",
                 cbmap.select.target==0?"No selection":
                     cbmap.select.target==1?"Hover":
                     cbmap.select.target==2?"Select":
                     cbmap.select.target==3?"Double Click":
                     cbmap.select.target==4?"Drag":"--",
-                ind>=0?cbmap.room.rooms[ind].id:0
+                ind>=0?cbmap.room.rooms[ind].id:0,
+                ind>=0?cbmap.room.rooms[ind].region:0,
+                ind<0?0:cbmap.room.rooms[ind].type==db_roomtype_plain?"Plain":
+                    cbmap.room.rooms[ind].type==db_roomtype_birth?"Birth":
+                    cbmap.room.rooms[ind].type==db_roomtype_store?"Store":
+                    cbmap.room.rooms[ind].type==db_roomtype_train?"Train":
+                    cbmap.room.rooms[ind].type==db_roomtype_gate?"Gate":"Undefined"
             ),
             (Rectangle){5,195,190,200},10,2,true,WHITE);
         if(ind>=0){
@@ -945,13 +969,20 @@ void CBMap_Draw(void){
     cbmap.updatebuffer=false;
 }
 void CBMap_Exit(void){
+    CBMap_FreeAll();
+    exit(0);
+}
+void CBMap_FreeAll(void){
     for(int i=0;i<cbmap.room.count;i++){
         Room *room=&cbmap.room.rooms[i];
         if(room->name)free(room->name);
         if(room->desc)free(room->desc);
+        room->name=NULL;
+        room->desc=NULL;
     }
     free(cbmap.room.rooms);
-    exit(0);
+    cbmap.room.rooms=NULL;
+    cbmap.room.count=0;
 }
 
 wchar_t scan_str[1024];
@@ -959,6 +990,7 @@ void CBMap_GetInput(int chars){
     printf(">");
     wmemset(scan_str,0,4096);
     fflush(stdout);
+    fflush(stdin);
     fgetws(scan_str,chars,stdin);
     if(scan_str[wcslen(scan_str)-1]==L'\n'){
         scan_str[wcslen(scan_str)-1]=0;
@@ -1062,9 +1094,15 @@ void Room_EditDesc(int roomindex){
 }
 void Room_EditRegn(int roomindex){
     Room *room=&cbmap.room.rooms[roomindex];
+    printf(">");
+    scanf("%u",&room->region);
+    fflush(stdin);
 }
 void Room_EditType(int roomindex){
     Room *room=&cbmap.room.rooms[roomindex];
+    printf(">");
+    scanf("%u",&room->type);
+    fflush(stdin);
 }
 void Room_EditTabl(int roomindex){
     Room *room=&cbmap.room.rooms[roomindex];
@@ -1098,6 +1136,20 @@ Color Region_GetPlainRoomColor(int region){
         return Color_AlphaBlend(base,GREEN,Color_Fade(WHITE,0.2f));
     case 2:
         return Color_AlphaBlend(base,BLUE,Color_Fade(WHITE,0.2f));
+    case 3:
+        return Color_AlphaBlend(base,RED,Color_Fade(WHITE,0.2f));
+    case 4:
+        return Color_AlphaBlend(base,MAROON,Color_Fade(WHITE,0.2f));
+    case 5:
+        return Color_AlphaBlend(base,ORANGE,Color_Fade(WHITE,0.2f));
+    case 6:
+        return Color_AlphaBlend(base,PINK,Color_Fade(WHITE,0.2f));
+    case 7:
+        return Color_AlphaBlend(base,VIOLET,Color_Fade(WHITE,0.2f));
+    case 8:
+        return Color_AlphaBlend(base,PURPLE,Color_Fade(WHITE,0.2f));
+    case 9:
+        return Color_AlphaBlend(base,BROWN,Color_Fade(WHITE,0.2f));
     default:
         return base;
     }

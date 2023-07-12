@@ -30,3 +30,10 @@ This is a tiny tool made with [Ascede](https://github.com/EinNeuerBenutzername/A
 ##### v3+
 
 - Made visual improvements and improved data stability.
+
+##### v3++
+
+- Made slight visual improvements.
+- Can now edit room type and region, and is now with different tint for rooms in different regions.
+- Camera module slightly revised to make even smaller scaling available.
+- Sadly, the seemingly randomly-occuring bug of the misterious disappearing of one side of the connections between rooms is still not fixed :P
