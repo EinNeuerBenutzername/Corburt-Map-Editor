@@ -37,3 +37,8 @@ This is a tiny tool made with [Ascede](https://github.com/EinNeuerBenutzername/A
 - Can now edit room type and region, and is now with different tint for rooms in different regions.
 - Camera module slightly revised to make even smaller scaling available.
 - Sadly, the seemingly randomly-occuring bug of the misterious disappearing of one side of the connections between rooms is still not fixed :P
+
+##### v4
+
+- Removed wchar dependency. Converted all wchar_t-related functions into regular string functions. This is a very urgent update, so data overflow isn't taken into consideration. Might or might not fix this some day.
+    - Older map files are made incompatible.

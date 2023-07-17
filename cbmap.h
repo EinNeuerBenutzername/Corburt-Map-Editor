@@ -42,8 +42,8 @@ typedef struct Button {
 
 typedef struct Room {
     int id;
-    wchar_t *name;
-    wchar_t *desc;
+    char *name;
+    char *desc;
     int x;
     int y;
     int region;
@@ -148,12 +148,12 @@ void CBMap_Load_Exported(void){
     else{ // load
         int curid=1;
         Room newroom={0},emptyroom={0};
-        char *line=malloc((ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(wchar_t));
-        memset(line,0,(ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(wchar_t));
-        fgets(line,(ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(wchar_t),fp); //roomdb roomdbs[]={
+        char *line=malloc((ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(char));
+        memset(line,0,(ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(char));
+        fgets(line,(ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(char),fp); //roomdb roomdbs[]={
         while(strlen(line)){
-            memset(line,0,(ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(wchar_t));
-            fgets(line,(ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(wchar_t),fp);
+            memset(line,0,(ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(char));
+            fgets(line,(ROOMDESC_MAX+ROOMNAME_MAX)*sizeof(char),fp);
             while(line[strlen(line)-1]=='\r'||line[strlen(line)-1]=='\n'||line[strlen(line)-1]==',')line[strlen(line)-1]=0;
             char* starter=strchr(line,'.');
             if(starter==NULL){
@@ -222,17 +222,19 @@ void CBMap_Load_Exported(void){
                         newroom.type=db_roomtype_gate;
                     }
                 }
-                if(strncmp(starter,".name=L\"",8)==0){
+                if(strncmp(starter,".name=\"",7)==0){
                     line[strlen(line)-1]=0;
-                    newroom.name=malloc(ROOMNAME_MAX*sizeof(wchar_t));
-                    wmemset(newroom.name,0,ROOMNAME_MAX);
-                    mbstowcs(newroom.name,starter+8,ROOMNAME_MAX*sizeof(wchar_t));
+                    newroom.name=malloc(ROOMNAME_MAX*sizeof(char));
+                    memset(newroom.name,0,ROOMNAME_MAX);
+                    strcpy(newroom.name,starter+7);
+//                    mbstowcs(newroom.name,starter+8,ROOMNAME_MAX*sizeof(char));
                 }
-                if(strncmp(starter,".desc=L\"",8)==0){
+                if(strncmp(starter,".desc=\"",7)==0){
                     line[strlen(line)-1]=0;
-                    newroom.desc=malloc(ROOMDESC_MAX*sizeof(wchar_t));
-                    wmemset(newroom.desc,0,ROOMDESC_MAX);
-                    mbstowcs(newroom.desc,starter+8,ROOMDESC_MAX*sizeof(wchar_t));
+                    newroom.desc=malloc(ROOMDESC_MAX);
+                    memset(newroom.desc,0,ROOMDESC_MAX);
+                    strcpy(newroom.desc,starter+7);
+//                    mbstowcs(newroom.desc,starter+8,ROOMDESC_MAX*sizeof(char));
                 }
                 if(strncmp(starter,".exits=",6)==0){ //
                     starter+=8;
@@ -353,12 +355,12 @@ void CBMap_Load_New(void){
     Room *room=&cbmap.room.rooms[0];
     room->id=1;
     room->type=db_roomtype_birth;
-    room->name=malloc(ROOMNAME_MAX*sizeof(wchar_t));
-    wmemset(room->name,0,ROOMNAME_MAX);
-//    wcscpy(room->name,L"");
-    room->desc=malloc(ROOMDESC_MAX*sizeof(wchar_t));
-    wmemset(room->desc,0,ROOMDESC_MAX);
-//    wcscpy(room->desc,L"No description");
+    room->name=malloc(ROOMNAME_MAX*sizeof(char));
+    memset(room->name,0,ROOMNAME_MAX);
+//    strcpy(room->name,"");
+    room->desc=malloc(ROOMDESC_MAX*sizeof(char));
+    memset(room->desc,0,ROOMDESC_MAX);
+//    strcpy(room->desc,"No description");
     cbmap.room.count=1;
 }
 void CBMap_Load(void){
@@ -555,12 +557,12 @@ void CBMap_Update_Select(void){
                         room.exits[dir_South]=cbmap.room.rooms[roomfromindex].id;
                         cbmap.room.rooms[roomfromindex].exits[dir_North]=room.id;
                     }
-                        room.name=malloc(ROOMNAME_MAX*sizeof(wchar_t));
-                        wmemset(room.name,0,ROOMNAME_MAX);
-//                        wcscpy(room.name,L"Untitled room");
-                        room.desc=malloc(ROOMDESC_MAX*sizeof(wchar_t));
-                        wmemset(room.desc,0,ROOMDESC_MAX);
-//                        wcscpy(room.desc,L"No description");
+                        room.name=malloc(ROOMNAME_MAX*sizeof(char));
+                        memset(room.name,0,ROOMNAME_MAX);
+//                        strcpy(room.name,"Untitled room");
+                        room.desc=malloc(ROOMDESC_MAX*sizeof(char));
+                        memset(room.desc,0,ROOMDESC_MAX);
+//                        strcpy(room.desc,"No description");
                     Room_Create(room);
                 }
                 else if(connectible){
@@ -696,7 +698,7 @@ void CBMap_Draw_Room(int x,int y,int posx,int posy,int size){
             break;
         }
         { // unfinished rooms
-            if(wcslen(room->desc)==0){
+            if(strlen(room->desc)==0){
                 bg=Color_AlphaBlend(bg,BLACK,Color_Fade(WHITE,0.2));
             }
         }
@@ -814,9 +816,9 @@ void CBMap_Draw_Room(int x,int y,int posx,int posy,int size){
 
         if(cbmap.camera.scale<0.4f)return;
 
-        char *name=malloc(256*sizeof(wchar_t));
-        memset(name,0,256*sizeof(wchar_t));
-        wcstombs(name,room->name,256*sizeof(wchar_t));
+        char *name=malloc(256*sizeof(char));
+        memset(name,0,256*sizeof(char));
+        strcpy(name,room->name); //UNSAFE
         Text_DrawRec(Font_GetDefault(),Text_Format("%s\n",name),
             (Rectangle){posx+1,posy+16,tile-2,tile-17},10,2,true,fg);
         free(name);
@@ -931,12 +933,12 @@ void CBMap_Draw_Text(void){
             (Rectangle){5,195,190,200},10,2,true,WHITE);
         if(ind>=0){
             Room *rm=&cbmap.room.rooms[ind];
-            char *name=malloc(ROOMNAME_MAX*sizeof(wchar_t));
-            char *desc=malloc(ROOMDESC_MAX*sizeof(wchar_t));
-            memset(name,0,ROOMNAME_MAX*sizeof(wchar_t));
-            memset(desc,0,ROOMDESC_MAX*sizeof(wchar_t));
-            wcstombs(name,rm->name,ROOMNAME_MAX*sizeof(wchar_t));
-            wcstombs(desc,rm->desc,ROOMDESC_MAX*sizeof(wchar_t));
+            char *name=malloc(ROOMNAME_MAX*sizeof(char));
+            char *desc=malloc(ROOMDESC_MAX*sizeof(char));
+            memset(name,0,ROOMNAME_MAX*sizeof(char));
+            memset(desc,0,ROOMDESC_MAX*sizeof(char));
+            strcpy(name,rm->name);
+            strcpy(desc,rm->desc);
             Text_DrawRec(Font_GetDefault(),
                 Text_Format(
                     "%s\n"
@@ -985,15 +987,15 @@ void CBMap_FreeAll(void){
     cbmap.room.count=0;
 }
 
-wchar_t scan_str[1024];
+char scan_str[4096];
 void CBMap_GetInput(int chars){
     printf(">");
-    wmemset(scan_str,0,4096);
+    memset(scan_str,0,4096);
     fflush(stdout);
     fflush(stdin);
-    fgetws(scan_str,chars,stdin);
-    if(scan_str[wcslen(scan_str)-1]==L'\n'){
-        scan_str[wcslen(scan_str)-1]=0;
+    fgets(scan_str,chars,stdin);
+    if(scan_str[strlen(scan_str)-1]=='\n'){
+        scan_str[strlen(scan_str)-1]=0;
     }
     fflush(stdin);
 }
@@ -1018,8 +1020,8 @@ void Room_Export(FILE *fp,Room *room){
     fprintf(fp,"        .region=db_roomregion_%s,\n",
         room->region==0?"nlcity":"forest"
     );
-    fwprintf(fp,L"        .name=L\"%ls\",\n",room->name);
-    fwprintf(fp,L"        .desc=L\"%ls\",\n",room->desc);
+    fprintf(fp,"        .name=\"%s\",\n",room->name);
+    fprintf(fp,"        .desc=\"%s\",\n",room->desc);
     fprintf(fp,"        .type=db_roomtype_%s,\n",
         room->type==db_roomtype_birth?"birth":
         room->type==db_roomtype_gate?"gate":
@@ -1085,12 +1087,12 @@ void Room_Delete(int roomindex){
 void Room_EditName(int roomindex){
     Room *room=&cbmap.room.rooms[roomindex];
     CBMap_GetInput(256);
-    wcscpy(room->name,scan_str);
+    strcpy(room->name,scan_str);
 }
 void Room_EditDesc(int roomindex){
     Room *room=&cbmap.room.rooms[roomindex];
     CBMap_GetInput(4096);
-    wcscpy(room->desc,scan_str);
+    strcpy(room->desc,scan_str);
 }
 void Room_EditRegn(int roomindex){
     Room *room=&cbmap.room.rooms[roomindex];
